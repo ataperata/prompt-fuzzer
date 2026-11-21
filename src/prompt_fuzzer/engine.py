@@ -25,7 +25,7 @@ from prompt_fuzzer.models import (
 )
 from prompt_fuzzer.operators import Crossover, build_mutators
 from prompt_fuzzer.targets import build_target
-from prompt_fuzzer.textutil import jaccard_distance
+from prompt_fuzzer.textutil import set_distance, words
 
 Progress = Callable[[GenerationStats], None]
 
@@ -369,11 +369,13 @@ def _stats(generation: int, population: list[Individual], threshold: float) -> G
 def _diversity(population: list[Individual]) -> float:
     if len(population) < 2:
         return 0.0
+    # Tokenize each prompt once; the pairwise loop below is quadratic.
+    tokens = [words(individual.text) for individual in population]
     nearest: list[float] = []
-    for index, individual in enumerate(population):
+    for index, own in enumerate(tokens):
         distance = min(
-            jaccard_distance(individual.text, other.text)
-            for other_index, other in enumerate(population)
+            set_distance(own, other)
+            for other_index, other in enumerate(tokens)
             if other_index != index
         )
         nearest.append(distance)
@@ -451,13 +453,14 @@ def _elites(population: list[Individual], count: int) -> list[Individual]:
 
 def _selection_keys(population: list[Individual], novelty_weight: float) -> dict[str, float]:
     keys: dict[str, float] = {}
-    for individual in population:
+    tokens = [words(individual.text) for individual in population]
+    for individual, own in zip(population, tokens, strict=True):
         if len(population) == 1:
             novelty = 0.0
         else:
             novelty = min(
-                jaccard_distance(individual.text, other.text)
-                for other in population
+                set_distance(own, other_tokens)
+                for other, other_tokens in zip(population, tokens, strict=True)
                 if other.id != individual.id
             )
         keys[individual.id] = (individual.fitness or 0.0) + novelty_weight * novelty

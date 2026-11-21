@@ -18,7 +18,12 @@ def word_list(text: str) -> list[str]:
 def jaccard_distance(a: str, b: str) -> float:
     """Token Jaccard distance in ``[0, 1]``. Identical text is ``0``."""
 
-    left, right = words(a), words(b)
+    return set_distance(words(a), words(b))
+
+
+def set_distance(left: set[str], right: set[str]) -> float:
+    """Jaccard distance between word sets that were already tokenized."""
+
     if not left and not right:
         return 0.0
     union = left | right
